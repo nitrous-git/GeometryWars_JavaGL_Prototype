@@ -28,10 +28,10 @@ import static org.lwjgl.opengl.GL11.*;
 public class Game {
 	
 	// ---- var & const ---- //
-	public static final int WIDTH = 1280;
-	public static final int SUB_WIDTH = 1200;
-	public static final int HEIGHT = 960;
-	public static final int SUB_HEIGHT = 880;
+	public static final int WIDTH = 1280; //1280
+	public static final int SUB_WIDTH = 1200; //1200
+	public static final int HEIGHT = 960; //960
+	public static final int SUB_HEIGHT = 880; //880
 	static final int PLAYER_SIZE = 52;   // 64
 	boolean isRunning = true;
 	int[] mouse_pos;
@@ -57,6 +57,7 @@ public class Game {
 	int[] enemy_pos;
 	int waveCounter = 0;
 	int iterativeWaveCounter = 0;
+	int nextWaveEnemyThreshold = 2;
     // ------ array 01 for spawn location (corner of screen) ------ //
     ArrayList<Point> spawnArray = new ArrayList<Point>(Arrays.asList(new Point(40+enemy_size/2,40+enemy_size/2), 
                                                                      new Point(SUB_WIDTH-enemy_size/2,40+enemy_size/2), 
@@ -88,7 +89,7 @@ public class Game {
 		setUpEntities();
 		gt.setUpTimer();
 		// ------------ MAIN GAME LOOP ------------ // 
-		while (isRunning) {
+		while (isRunning && !window.shouldClose()) {
 			render();
 			logic(gt.getDelta(), gt.getVerletDelta());
 			input();
@@ -124,18 +125,9 @@ public class Game {
 	}
 
 	private void setUpOpenGL() {
-		glMatrixMode(GL_PROJECTION);
-		glLoadIdentity();
-
-		glOrtho(0, WIDTH, HEIGHT, 0, 1, -1);
-
-		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity();
-
 		glEnable(GL_COLOR_MATERIAL);
 		glEnable(GL_TEXTURE_2D);
 		glEnable(GL_BLEND);
-
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
 
@@ -229,16 +221,12 @@ public class Game {
         if (!blackholeArrayList.isEmpty()) {
 			for (BlackholeSystem bhSystem : blackholeArrayList) {
 				bhSystem.updateBlackholeSystem(delta);
-				
-			    // warping the grid on blackhole
-		        for (int i = 1; i < warpingGrid.row-1; i++) {
-		            for (int j = 1; j < warpingGrid.column-1; j++) {
-		            	if (bhSystem.blackholeEntityC.hitbox.contains(warpingGrid.particleArray[i][j].currentX, warpingGrid.particleArray[i][j].currentY)) {
-		            		warpingGrid.particleArray[i][j].currentX -= 40;
-	                        warpingGrid.particleArray[i][j].currentY -= 40;
-						}
-		            }
-		        }
+
+				double blackholeX = bhSystem.blackholeEntityC.getX();
+				double blackholeY = bhSystem.blackholeEntityC.getY();
+				double warpRadius = 140.0;
+				double warpStrength = 11.0;
+				warpingGrid.applyBlackholeWarp(blackholeX, blackholeY, warpRadius, warpStrength);
 			}
 		}
         	
@@ -313,22 +301,38 @@ public class Game {
 				}
 			}
 		}
-	    
-	    
-	    // warping the grid on collisons with bullet 
-        for (int i = 1; i < warpingGrid.row-1; i++) {
-            for (int j = 1; j < warpingGrid.column-1; j++) {
-            	for (Bullet b : weaponManager.bulletArray) {
-                    if (b.contains(warpingGrid.particleArray[i][j].currentX, warpingGrid.particleArray[i][j].currentY)) {
 
-                    	warpingGrid.particleArray[i][j].currentX += b.comp_x * 10;
-                        warpingGrid.particleArray[i][j].currentY -= b.comp_y * 10;
 
-                        break;
-                    }
+		// Warp the grid around active bullets.
+		double bulletWarpRadius = 42.0;
+		double bulletWarpRadiusSq = bulletWarpRadius * bulletWarpRadius;
+		double bulletWarpStrength = 14.0;
+
+		for (int i = 1; i < warpingGrid.row - 1; i++) {
+			for (int j = 1; j < warpingGrid.column - 1; j++) {
+				for (Bullet b : weaponManager.bulletArray) {
+					double dx = warpingGrid.particleArray[i][j].currentX - b.getX();
+					double dy = warpingGrid.particleArray[i][j].currentY - b.getY();
+
+					double distSq = dx * dx + dy * dy;
+
+					if (distSq <= bulletWarpRadiusSq) {
+						double dist = Math.sqrt(distSq);
+						double normalizedDistance = dist / bulletWarpRadius;
+						double falloff = 1.0 - normalizedDistance;
+						falloff = falloff * falloff;
+
+						double moveX = b.comp_x * bulletWarpStrength * falloff;
+						double moveY = -b.comp_y * bulletWarpStrength * falloff;
+
+						warpingGrid.particleArray[i][j].currentX += moveX;
+						warpingGrid.particleArray[i][j].currentY += moveY;
+
+						break;
+					}
 				}
-            }
-        }
+			}
+		}
 	    
 	}
 	
@@ -400,8 +404,8 @@ public class Game {
 			glfwGetCursorPos(handle, mouseX, mouseY);
 
 			mouse_pos = new int[2];
-			mouse_pos[0] = (int) mouseX[0];
-			mouse_pos[1] = (int) mouseY[0];
+			mouse_pos[0] = (int) window.toGameX(mouseX[0]);
+			mouse_pos[1] = (int) window.toGameY(mouseY[0]);
 
 			weaponManager.bulletSpawner(player.getX(), player.getY(), mouse_pos);
 		} else {
@@ -447,9 +451,7 @@ public class Game {
         }
     }
 	
-	
-	
-	
+
     public void generateWave() {
         if (canSpawnWave) {
         	if (randSkip != 0) {
@@ -462,9 +464,7 @@ public class Game {
 	                }
                 } 
                 if (waveCounter%4==0 && waveCounter!=0) {
-                	//enemyArray.add(new EnemyC(rand.nextInt(WIDTH-enemy_size/2), rand.nextInt(HEIGHT-enemy_size/2), enemy_size, enemy_size));
-                	//blackholeArrayList.add( new BlackholeSystem((double)rand.nextInt(SUB_WIDTH-enemy_size/2), (double)rand.nextInt(SUB_HEIGHT-enemy_size/2)));
-                	blackholeArrayList.add( new BlackholeSystem((double)rand.nextInt(SUB_WIDTH-enemy_size/2 - 800), (double)rand.nextInt(SUB_HEIGHT-enemy_size/2 - 600)));
+					blackholeArrayList.add(createRandomBlackholeInsideGrid());
                 } 
                 canSpawnWave = false;
 			}
@@ -474,7 +474,8 @@ public class Game {
         }
         
     }
-    
+
+
     public void iterativeWave() {
     	iterativeWaveCounter++;
     	if (iterativeWaveCounter%20 == 0) {
@@ -495,18 +496,30 @@ public class Game {
 		}
     	
     }
-    
-    
-    public void resetWave() {
-        // use enemyArray.isEmpty() for perfect loop
-    	if (enemyArray.size() == 2 && !canSpawnWave) {
-            waveCounter++;
-            canSpawnWave = true;
-            // possibilities of iterative waves 
-            randSkip = rand.nextInt(10);
-            iterativeWaveCounter = 0;
-        }
-    }
+
+	public void resetWave() {
+		if (!canSpawnWave && enemyArray.size() <= nextWaveEnemyThreshold) {
+			waveCounter++;
+			canSpawnWave = true;
+
+			randSkip = rand.nextInt(10);
+			iterativeWaveCounter = 0;
+
+			nextWaveEnemyThreshold = rollNextWaveEnemyThreshold();
+		}
+	}
+
+	private int rollNextWaveEnemyThreshold() {
+		if (waveCounter < 4) {
+			return randomIntInclusive(1, 2);
+		}
+
+		if (waveCounter < 10) {
+			return randomIntInclusive(1, 3);
+		}
+
+		return randomIntInclusive(2, 4);
+	}
 
     public void addPlayerScore(EnemyEntity enemy) {
         switch (enemy.getEnemyID()) {
@@ -533,6 +546,38 @@ public class Game {
 			weaponManager.weaponIndex = 2;
 		}
 	}
-    
+
+
+	// Black hole spawn helpers
+	private BlackholeSystem createRandomBlackholeInsideGrid() {
+		int gridLeft = 40;
+		int gridTop = 40;
+		int gridRight = gridLeft + SUB_WIDTH;
+		int gridBottom = gridTop + SUB_HEIGHT;
+
+		int blackholeRadius = enemy_size / 2;
+
+		// Extra margin so the black hole does not spawn too close to the grid border.
+		int borderPadding = 120;
+
+		int minX = gridLeft + blackholeRadius + borderPadding;
+		int maxX = gridRight - blackholeRadius - borderPadding;
+
+		int minY = gridTop + blackholeRadius + borderPadding;
+		int maxY = gridBottom - blackholeRadius - borderPadding;
+
+		int x = randomIntInclusive(minX, maxX);
+		int y = randomIntInclusive(minY, maxY);
+
+		return new BlackholeSystem((double) x, (double) y);
+	}
+
+	private int randomIntInclusive(int min, int max) {
+		if (max < min) {
+			return min;
+		}
+
+		return rand.nextInt(max - min + 1) + min;
+	}
     
 }

@@ -88,5 +88,51 @@ public class Grid {
         glEnd();
 	}
 
+    // BLACK HOLE HELPER
+    public void applyBlackholeWarp(double centerX, double centerY, double radius, double strength) {
+        double radiusSq = radius * radius;
+
+        for (int i = 1; i < row - 1; i++) {
+            for (int j = 1; j < column - 1; j++) {
+                Particle p = particleArray[i][j];
+
+                if (!p.isMovable) {
+                    continue;
+                }
+
+                double dx = centerX - p.currentX;
+                double dy = centerY - p.currentY;
+                double distSq = dx * dx + dy * dy;
+
+                if (distSq <= 0.0001 || distSq > radiusSq) {
+                    continue;
+                }
+
+                double dist = Math.sqrt(distSq);
+
+                // Direction from the grid particle toward the black hole center.
+                double dirX = dx / dist;
+                double dirY = dy / dist;
+
+                // Stronger near the center, weaker near the edge.
+                double normalizedDistance = dist / radius;
+                double falloff = 1.0 - normalizedDistance;
+                falloff = falloff * falloff;
+
+                double displacement = strength * falloff;
+
+                double moveX = dirX * displacement;
+                double moveY = dirY * displacement;
+
+                p.currentX += moveX;
+                p.currentY += moveY;
+
+                // Important with Verlet:
+                // Move old position too, otherwise this injects a huge artificial velocity.
+                p.oldX += moveX;
+                p.oldY += moveY;
+            }
+        }
+    }
 
 }
