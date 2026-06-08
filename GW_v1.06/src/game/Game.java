@@ -81,10 +81,15 @@ public class Game {
     ArrayList<ParticleSystem_Death> ps_DeathArrayList = new ArrayList<ParticleSystem_Death>();
     ArrayList<BlackholeSystem> blackholeArrayList = new ArrayList<BlackholeSystem>();
 
-	// game over
+	// GUI Panel
 	private boolean gameOver = false;
 	private boolean replayMouseWasDown = false;
+
+	private boolean startScreen = true;
+	private boolean startMouseWasDown = false;
+
 	private GameOverPanel gameOverPanel;
+	private StartPanel startPanel;
 
 	// ---- CONSTRUCTOR ---- //
 	public Game() {
@@ -145,6 +150,7 @@ public class Game {
 		bg = new Background(0, 0, WIDTH, HEIGHT);
 
 		gameOverPanel = new GameOverPanel();
+		startPanel = new StartPanel();
 	}
 
 
@@ -183,7 +189,9 @@ public class Game {
 		
 		fr_timesNew.drawString(20, 30, "SCORE : "+ player.getScore(), 1f, 1f, 1f, 1.0f); // uses alpha
 
-		if (gameOver) {
+		if (startScreen) {
+			startPanel.draw(fr_timesNew);
+		} else if (gameOver) {
 			gameOverPanel.draw(fr_timesNew);
 		}
 
@@ -192,6 +200,11 @@ public class Game {
 	}
 
 	private void logic(int delta, double dt) {
+		if (startScreen) {
+			warpingGrid.updateGrid(dt);
+			return;
+		}
+
 		if (gameOver) {
 			warpingGrid.updateGrid(dt);
 			updateDeathParticles(delta);
@@ -383,6 +396,11 @@ public class Game {
 		if (glfwGetKey(handle, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 			window.requestClose();
 			isRunning = false;
+			return;
+		}
+
+		if (startScreen) {
+			handleStartScreenInput(handle);
 			return;
 		}
 
@@ -725,7 +743,10 @@ public class Game {
 	// Reset game for replay
 	private void resetGameAfterGameOver() {
 		gameOver = false;
+		startScreen = false;
+
 		replayMouseWasDown = false;
+		startMouseWasDown = false;
 
 		enemyArray.clear();
 		blackholeArrayList.clear();
@@ -749,6 +770,37 @@ public class Game {
 		waveCounter = 0;
 		iterativeWaveCounter = 0;
 		randSkip = 1;
+		canSpawnWave = true;
+	}
+
+	// Start Panel helpers
+
+	private void handleStartScreenInput(long handle) {
+		boolean mouseDown = glfwGetMouseButton(handle, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+
+		if (mouseDown && !startMouseWasDown) {
+			double[] mouseX = new double[1];
+			double[] mouseY = new double[1];
+
+			glfwGetCursorPos(handle, mouseX, mouseY);
+
+			double gameMouseX = window.toGameX(mouseX[0]);
+			double gameMouseY = window.toGameY(mouseY[0]);
+
+			if (startPanel.isPlayButtonHit(gameMouseX, gameMouseY)) {
+				startGame();
+			}
+		}
+
+		startMouseWasDown = mouseDown;
+	}
+
+	private void startGame() {
+		startScreen = false;
+		startMouseWasDown = false;
+
+		resetKeyInput();
+
 		canSpawnWave = true;
 	}
 }
