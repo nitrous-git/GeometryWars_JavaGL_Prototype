@@ -3,11 +3,7 @@ package game;
 import entities.Background;
 import entities.Bullet;
 import entities.Player;
-import entities.enemy.EnemyA;
-import entities.enemy.EnemyB;
-import entities.enemy.EnemyC;
-import entities.enemy.EnemyD;
-import entities.enemy.EnemyEntity;
+import entities.enemy.*;
 import entities.particle_system.BlackholeSystem;
 import entities.particle_system.ParticleSystem_Death;
 import helpers.FontRenderer;
@@ -297,7 +293,7 @@ public class Game {
 		}
 	    
 	    // collide bullet with enemy -- for now ... 
-	    for (int i = 0; i < weaponManager.bulletArray.size(); i++) {
+/*	    for (int i = 0; i < weaponManager.bulletArray.size(); i++) {
 			for (int j = 0; j < enemyArray.size(); j++) {
 				if (weaponManager.bulletArray.get(i).intersects(enemyArray.get(j)) && enemyArray.get(j).getHealth() <= 0) {
 					weaponManager.bulletArray.remove(i);
@@ -312,6 +308,30 @@ public class Game {
 					//System.out.println("ENEMY " + j + " HAS " + enemyArray.get(j).getHealth());
 					enemyArray.get(j).setHealth( enemyArray.get(j).getHealth() - 1 );
 					weaponManager.bulletArray.remove(i);
+					break;
+				}
+			}
+		}*/
+
+		for (int i = 0; i < weaponManager.bulletArray.size(); i++) {
+			Bullet bullet = weaponManager.bulletArray.get(i);
+
+			for (int j = 0; j < enemyArray.size(); j++) {
+				EnemyEntity enemy = enemyArray.get(j);
+
+				if (bulletHitsEnemy(bullet, enemy)) {
+					weaponManager.bulletArray.remove(i);
+
+					if (enemy.getHealth() <= 0) {
+						addPlayerScore(enemy);
+
+						spawnDeathParticles(enemyArray.get(j).getX(), enemyArray.get(j).getY());
+
+						enemyArray.remove(j);
+					} else {
+						enemy.setHealth(enemy.getHealth() - 1);
+					}
+
 					break;
 				}
 			}
@@ -511,6 +531,9 @@ public class Game {
 				case "EnemyD":
 					enemy.update(delta, player.getX(), player.getY());
 					break;
+				case "EnemySnake":
+					enemy.update(delta, player.getX(), player.getY());
+					break;
 				default:
 					break;
 			}	
@@ -531,8 +554,11 @@ public class Game {
                 } 
                 if (waveCounter%4==0 && waveCounter!=0) {
 					blackholeArrayList.add(createRandomBlackholeInsideGrid());
-                } 
-                canSpawnWave = false;
+                }
+				if (waveCounter%8==0 && waveCounter!=0) {
+					spawnSnakeCornerWave();
+				}
+				canSpawnWave = false;
 			}
         	if (randSkip == 0) {
         		iterativeWave();
@@ -544,17 +570,23 @@ public class Game {
 
     public void iterativeWave() {
     	iterativeWaveCounter++;
-    	if (iterativeWaveCounter%20 == 0) {
-    		for (int i = 0; i < MAX_ENEMY; i++) {
-    			max_x = (int)spawnArray03.get(i).getX() + offset;
-    			min_x = (int)spawnArray03.get(i).getX() - offset;
-    			int randXPos = rand.nextInt(max_x-min_x) + min_x;
-    			max_y = (int)spawnArray03.get(i).getY() + offset;
-    			min_y = (int)spawnArray03.get(i).getY() - offset;
-    			int randYPos = rand.nextInt(max_y-min_y) + min_y;
-    			enemyArray.add(new EnemyD(randXPos, randYPos, enemy_size, enemy_size));
-    		}
+
+		if (iterativeWaveCounter % 20 == 0) {
+			for (int i = 0; i < MAX_ENEMY; i++) {
+				max_x = (int)spawnArray03.get(i).getX() + offset;
+				min_x = (int)spawnArray03.get(i).getX() - offset;
+
+				int randXPos = rand.nextInt(max_x - min_x) + min_x;
+
+				max_y = (int)spawnArray03.get(i).getY() + offset;
+				min_y = (int)spawnArray03.get(i).getY() - offset;
+
+				int randYPos = rand.nextInt(max_y - min_y) + min_y;
+
+				enemyArray.add(new EnemyD(randXPos, randYPos, enemy_size, enemy_size));
+			}
 		}
+
     	// spawn 15 enemy each corner (300/20=15)
     	// 4 corner = 60 enemy on screen 
     	if (iterativeWaveCounter >= 200) {
@@ -601,6 +633,9 @@ public class Game {
 			case "EnemyD":
 				player.setScore(player.getScore()+50);
 				break;
+			case "EnemySnake":
+				player.setScore(player.getScore()+150);
+				break;
 			default:
 				break;
 		}		
@@ -608,7 +643,7 @@ public class Game {
     
     // --- check for weapon upgrade
     public void checkUpgrade() {
-    	if (player.getScore() > 4000) {
+    	if (player.getScore() > 1800) {
 			weaponManager.weaponIndex = 2;
 		}
 	}
@@ -802,5 +837,36 @@ public class Game {
 		resetKeyInput();
 
 		canSpawnWave = true;
+	}
+
+	// Collision head only EnemySnake and normal for other
+	private boolean bulletHitsEnemy(Bullet bullet, EnemyEntity enemy) {
+		if (enemy instanceof EnemySnake) {
+			return ((EnemySnake) enemy).intersectsHead(bullet);
+		}
+
+		return bullet.intersects(enemy);
+	}
+
+	private void spawnSnakeCornerWave() {
+		System.out.println("spawnSnakeCornerWave");
+
+		for (int i = 0; i < MAX_ENEMY; i++) {
+			int snakeCount = 1 + randomIntInclusive(0, 1);
+
+			for (int s = 0; s < snakeCount; s++) {
+				max_x = (int)spawnArray03.get(i).getX() + offset;
+				min_x = (int)spawnArray03.get(i).getX() - offset;
+
+				int randXPos = rand.nextInt(max_x - min_x) + min_x;
+
+				max_y = (int)spawnArray03.get(i).getY() + offset;
+				min_y = (int)spawnArray03.get(i).getY() - offset;
+
+				int randYPos = rand.nextInt(max_y - min_y) + min_y;
+
+				enemyArray.add(new EnemySnake(randXPos, randYPos, enemy_size, enemy_size));
+			}
+		}
 	}
 }
