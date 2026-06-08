@@ -81,7 +81,11 @@ public class Game {
     ArrayList<ParticleSystem_Death> ps_DeathArrayList = new ArrayList<ParticleSystem_Death>();
     ArrayList<BlackholeSystem> blackholeArrayList = new ArrayList<BlackholeSystem>();
 
-	
+	// game over
+	private boolean gameOver = false;
+	private boolean replayMouseWasDown = false;
+	private GameOverPanel gameOverPanel;
+
 	// ---- CONSTRUCTOR ---- //
 	public Game() {
 		setUpDisplay();
@@ -139,6 +143,8 @@ public class Game {
 		player = new Player(500, 500, PLAYER_SIZE, PLAYER_SIZE);
 		warpingGrid = new Grid();
 		bg = new Background(0, 0, WIDTH, HEIGHT);
+
+		gameOverPanel = new GameOverPanel();
 	}
 
 
@@ -176,61 +182,83 @@ public class Game {
         }
 		
 		fr_timesNew.drawString(20, 30, "SCORE : "+ player.getScore(), 1f, 1f, 1f, 1.0f); // uses alpha
-        
+
+		if (gameOver) {
+			gameOverPanel.draw(fr_timesNew);
+		}
+
         glDisable(GL_TEXTURE_2D);
 		glDisable(GL_BLEND);
 	}
-	
+
 	private void logic(int delta, double dt) {
+		if (gameOver) {
+			warpingGrid.updateGrid(dt);
+			updateDeathParticles(delta);
+			return;
+		}
+
 		checkCollision();
 		checkUpgrade();
-		//checkLose();
-		
+
+		if (gameOver) {
+			updateDeathParticles(delta);
+			return;
+		}
+
 		// update the grid -- using a second tick
 		warpingGrid.updateGrid(dt);
-		
+
 		// update weapons attack
 		weaponManager.update(delta);
-		
-		// update thruster particle  
+
+		// update thruster particle
 		if (openThruster) {
 			player.generatePS_Thruster();
 			player.ps_Thruster.updateLinear(delta);
 			player.ps_Thruster.updateOsc(delta);
 		}
+
 		if (!openThruster) {
 			player.ps_Thruster.updateLinear(delta);
 			player.ps_Thruster.updateOsc(delta);
 		}
-		// update player 
+
+		// update player
 		player.update(delta);
-		
-        // update enemy and waves
-        updateEnemy(delta);
-        resetWave();
-        generateWave();
-        
-        // update death particle for enemy -- handle the render also
-        for (int i = 0; i < ps_DeathArrayList.size(); i++) {
-        	ps_DeathArrayList.get(i).updateDeathParticle(delta);
-        	if (!ps_DeathArrayList.get(i).isAlive) {
-        		ps_DeathArrayList.remove(i);
-			}
-		}
-        
-        if (!blackholeArrayList.isEmpty()) {
+
+		// update enemy and waves
+		updateEnemy(delta);
+		resetWave();
+		generateWave();
+
+		updateDeathParticles(delta);
+
+		if (!blackholeArrayList.isEmpty()) {
 			for (BlackholeSystem bhSystem : blackholeArrayList) {
 				bhSystem.updateBlackholeSystem(delta);
 
 				double blackholeX = bhSystem.blackholeEntityC.getX();
 				double blackholeY = bhSystem.blackholeEntityC.getY();
+
 				double warpRadius = 140.0;
-				double warpStrength = 11.0;
+				double warpStrength = 8.0;
+
 				warpingGrid.applyBlackholeWarp(blackholeX, blackholeY, warpRadius, warpStrength);
 			}
 		}
-        	
-		
+	}
+
+	private void updateDeathParticles(int delta) {
+		for (int i = ps_DeathArrayList.size() - 1; i >= 0; i--) {
+			ParticleSystem_Death psDeath = (ParticleSystem_Death) ps_DeathArrayList.get(i);
+
+			psDeath.updateDeathParticle(delta);
+
+			if (!psDeath.isAlive) {
+				ps_DeathArrayList.remove(i);
+			}
+		}
 	}
 	
 	public void checkCollision() throws IndexOutOfBoundsException {
@@ -248,6 +276,12 @@ public class Game {
 	    if (player.getY() <= 40 + player.getHeight()/2) {
 	    	player.setY(40 + player.getHeight()/2);
 		}
+
+
+		if (checkPlayerHitByEnemy()) {
+			triggerGameOver();
+			return;
+		}
 	    
 	    // collide bullet with enemy -- for now ... 
 	    for (int i = 0; i < weaponManager.bulletArray.size(); i++) {
@@ -256,15 +290,9 @@ public class Game {
 					weaponManager.bulletArray.remove(i);
 					
 					addPlayerScore(enemyArray.get(j));
-					
-					ParticleSystem_Death ps_DeathSys = new ParticleSystem_Death();
-					ps_DeathArrayList.add(ps_DeathSys);
-					
-					ps_DeathSys.setX(enemyArray.get(j).getX());
-					ps_DeathSys.setY(enemyArray.get(j).getY());
-							
-					//ps_Death.generateDeathParticle(enemyArray.get(j).getX(), enemyArray.get(j).getY());
-					ps_DeathSys.thread.start();
+
+					spawnDeathParticles(enemyArray.get(j).getX(), enemyArray.get(j).getY());
+
 					enemyArray.remove(j);
 					break;
 				}else if(weaponManager.bulletArray.get(i).intersects(enemyArray.get(j)) && enemyArray.get(j).getHealth() > 0) {
@@ -283,14 +311,9 @@ public class Game {
 				if (weaponManager.bulletArray.get(i).intersects(blackholeArrayList.get(j).blackholeEntityC) 
 					&& blackholeArrayList.get(j).blackholeEntityC.getHealth() <= 0) {
 					weaponManager.bulletArray.remove(i);
-					
-					ParticleSystem_Death ps_DeathSys = new ParticleSystem_Death();
-					ps_DeathArrayList.add(ps_DeathSys);
-					
-					ps_DeathSys.setX(blackholeArrayList.get(j).blackholeEntityC.getX());
-					ps_DeathSys.setY(blackholeArrayList.get(j).blackholeEntityC.getY());
-							
-					ps_DeathSys.thread.start();
+
+					spawnDeathParticles(enemyArray.get(j).getX(), enemyArray.get(j).getY());
+
 					blackholeArrayList.remove(j);
 				}else if(weaponManager.bulletArray.get(i).intersects(blackholeArrayList.get(j).blackholeEntityC) 
 						&& blackholeArrayList.get(j).blackholeEntityC.getHealth() > 0) {
@@ -363,6 +386,11 @@ public class Game {
 			return;
 		}
 
+		if (gameOver) {
+			handleGameOverInput(handle);
+			return;
+		}
+
 		// Thruster / movement.
 		boolean thrustPressed =
 				glfwGetKey(handle, GLFW_KEY_UP) == GLFW_PRESS ||
@@ -411,6 +439,26 @@ public class Game {
 		} else {
 			weaponManager.resetShoot();
 		}
+	}
+
+	private void handleGameOverInput(long handle) {
+		boolean replayMouseDown = glfwGetMouseButton(handle, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+
+		if (replayMouseDown && !replayMouseWasDown) {
+			double[] mouseX = new double[1];
+			double[] mouseY = new double[1];
+
+			glfwGetCursorPos(handle, mouseX, mouseY);
+
+			double gameMouseX = window.toGameX(mouseX[0]);
+			double gameMouseY = window.toGameY(mouseY[0]);
+
+			if (gameOverPanel.isReplayButtonHit(gameMouseX, gameMouseY)) {
+				resetGameAfterGameOver();
+			}
+		}
+
+		replayMouseWasDown = replayMouseDown;
 	}
 
 	public void resetKeyInput() {
@@ -579,5 +627,128 @@ public class Game {
 
 		return rand.nextInt(max - min + 1) + min;
 	}
-    
+
+	// Game Over Helpers
+	private boolean checkPlayerHitByEnemy() {
+		for (int i = 0; i < enemyArray.size(); i++) {
+			EnemyEntity enemy = (EnemyEntity) enemyArray.get(i);
+
+			if (centeredRectIntersects(
+					player.getX(), player.getY(), player.getWidth() * 0.75, player.getHeight() * 0.75,
+					enemy.getX(), enemy.getY(), enemy.getWidth() * 0.85, enemy.getHeight() * 0.85
+			)) {
+				return true;
+			}
+		}
+
+		for (int i = 0; i < blackholeArrayList.size(); i++) {
+			BlackholeSystem bhSystem = (BlackholeSystem) blackholeArrayList.get(i);
+
+			if (centeredRectIntersects(
+					player.getX(), player.getY(), player.getWidth() * 0.75, player.getHeight() * 0.75,
+					bhSystem.blackholeEntityC.getX(), bhSystem.blackholeEntityC.getY(),
+					bhSystem.blackholeEntityC.getWidth() * 0.9,
+					bhSystem.blackholeEntityC.getHeight() * 0.9
+			)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private boolean centeredRectIntersects(
+			double ax, double ay, double aw, double ah,
+			double bx, double by, double bw, double bh
+	) {
+		double aLeft = ax - aw / 2.0;
+		double aRight = ax + aw / 2.0;
+		double aTop = ay - ah / 2.0;
+		double aBottom = ay + ah / 2.0;
+
+		double bLeft = bx - bw / 2.0;
+		double bRight = bx + bw / 2.0;
+		double bTop = by - bh / 2.0;
+		double bBottom = by + bh / 2.0;
+
+		return aLeft < bRight
+				&& aRight > bLeft
+				&& aTop < bBottom
+				&& aBottom > bTop;
+	}
+
+	private void triggerGameOver() {
+		if (gameOver) {
+			return;
+		}
+
+		gameOver = true;
+
+		player.setHealth(0);
+		openThruster = false;
+		resetKeyInput();
+
+		killAllEnemiesOnScreen();
+
+		weaponManager.bulletArray.clear();
+
+		canSpawnWave = false;
+	}
+
+	private void killAllEnemiesOnScreen() {
+		for (int i = enemyArray.size() - 1; i >= 0; i--) {
+			EnemyEntity enemy = (EnemyEntity) enemyArray.get(i);
+			spawnDeathParticles(enemy.getX(), enemy.getY());
+			enemyArray.remove(i);
+		}
+
+		for (int i = blackholeArrayList.size() - 1; i >= 0; i--) {
+			BlackholeSystem bhSystem = (BlackholeSystem) blackholeArrayList.get(i);
+			spawnDeathParticles(bhSystem.blackholeEntityC.getX(), bhSystem.blackholeEntityC.getY());
+			blackholeArrayList.remove(i);
+		}
+	}
+
+	private void spawnDeathParticles(double x, double y) {
+		ParticleSystem_Death psDeathSys = new ParticleSystem_Death();
+
+		psDeathSys.setX(x);
+		psDeathSys.setY(y);
+
+		psDeathSys.generateDeathParticle(x, y, rand.nextInt(360));
+
+		ps_DeathArrayList.add(psDeathSys);
+
+		psDeathSys.thread.start();
+	}
+
+	// Reset game for replay
+	private void resetGameAfterGameOver() {
+		gameOver = false;
+		replayMouseWasDown = false;
+
+		enemyArray.clear();
+		blackholeArrayList.clear();
+		ps_DeathArrayList.clear();
+		weaponManager.bulletArray.clear();
+
+		player.setX(WIDTH / 2.0);
+		player.setY(HEIGHT / 2.0);
+		player.setHealth(6);
+		player.setScore(0);
+		player.rotation = 0;
+		player.push = 0;
+		player.setXVelocity(0);
+		player.setYVelocity(0);
+
+		openThruster = false;
+		resetKeyInput();
+
+		warpingGrid = new Grid();
+
+		waveCounter = 0;
+		iterativeWaveCounter = 0;
+		randSkip = 1;
+		canSpawnWave = true;
+	}
 }
