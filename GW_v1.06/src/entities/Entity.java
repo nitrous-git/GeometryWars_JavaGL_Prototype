@@ -1,7 +1,7 @@
 package entities;
 
 import java.awt.Rectangle;
-import org.newdawn.slick.opengl.Texture;
+import helpers.Texture;
 
 public class Entity implements EntityInterface {
 	

@@ -39,10 +39,16 @@ public class OscParticle extends Entity{
 
 	@Override
 	public void draw() {
-		glColor3f(r, g, b);
-		if (lifetime > 0) {
-			glRectd(x, y, x+width, y+height);
+		if (lifetime <= 0) {
+			return;
 		}
+
+		glDisable(GL_TEXTURE_2D);
+
+		glColor3f(r, g, b);
+		glRectd(x, y, x+width, y+height);
+
+		glEnable(GL_TEXTURE_2D);
 	}
 	
 	

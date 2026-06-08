@@ -6,7 +6,7 @@ import static org.lwjgl.opengl.GL11.*;
 
 import java.awt.Rectangle;
 
-import org.newdawn.slick.opengl.Texture;
+import helpers.Texture;
 
 
 

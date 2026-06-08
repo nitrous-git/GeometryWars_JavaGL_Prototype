@@ -29,8 +29,12 @@ public class OrbitParticle extends EnemyEntity {
 	
 	@Override
 	public void draw() {
+		glDisable(GL_TEXTURE_2D);
+
 		glColor3f(r, g, b);
 		glRectd(x, y, x+width, y+height);
+
+		glEnable(GL_TEXTURE_2D);
 	}
 	
 

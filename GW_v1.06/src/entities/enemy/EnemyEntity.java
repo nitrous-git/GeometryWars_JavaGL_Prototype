@@ -1,8 +1,9 @@
 package entities.enemy;
 
-import org.newdawn.slick.opengl.Texture;
 
 import entities.Entity;
+
+import helpers.Texture;
 import helpers.TextureHelper;
 
 /**

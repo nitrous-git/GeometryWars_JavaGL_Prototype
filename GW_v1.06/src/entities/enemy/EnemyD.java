@@ -3,8 +3,7 @@ package entities.enemy;
 import static org.lwjgl.opengl.GL11.*;
 
 
-import org.newdawn.slick.opengl.Texture;
-
+import helpers.Texture;
 import helpers.TextureHelper;
 
 /**

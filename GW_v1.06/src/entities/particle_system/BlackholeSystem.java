@@ -64,7 +64,7 @@ public class BlackholeSystem {
 		this.b = (float) rand.nextInt(255) / 255;
 	}
 	
-	// calclate gravity attraction
+	// calculate gravity attraction
 	public void calculateNewton() {
 		for (EnemyEntity n_1 : systemArray) {
 			for (EnemyEntity n_2 : systemArray) {

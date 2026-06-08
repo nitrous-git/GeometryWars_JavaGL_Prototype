@@ -3,12 +3,11 @@ package entities.particle_system;
 import entities.Entity;
 
 import static org.lwjgl.opengl.GL11.*;
-import org.newdawn.slick.Color;
+
 
 public class LinearParticle extends Entity{
 	
 	public double lifetime;
-	public Color color = Color.orange;
 	
 	public LinearParticle(double x, double y, double width, double height) {
 		super(x, y, width, height);
@@ -31,9 +30,15 @@ public class LinearParticle extends Entity{
 	
 	@Override
 	public void draw() {
-		glColor3f(1.0f, 1.0f, 0.0f);
-		if (lifetime > 0) {
-			glRectd(x, y, x+width, y+height);
+		if (lifetime <= 0) {
+			return;
 		}
+
+		glDisable(GL_TEXTURE_2D);
+
+		glColor3f(1.0f, 1.0f, 0.0f);
+		glRectd(x, y, x+width, y+height);
+
+		glEnable(GL_TEXTURE_2D);
 	}
 }

@@ -6,7 +6,10 @@ import static org.lwjgl.opengl.GL11.*;
 
 import java.awt.Rectangle;
 
-import org.newdawn.slick.opengl.Texture;
+import helpers.Texture;
+import helpers.TextureHelper;
+
+import static org.lwjgl.opengl.GL11.*;
 
 public class Bullet extends Entity {
 	
@@ -56,7 +59,7 @@ public class Bullet extends Entity {
 		glLoadIdentity();
 	
 		// rotate bullet in direction of velocity - convert rad to deg
-		rot = (float)((bullet_angle*180)/3.14)+270;
+		rot = (float) ((bullet_angle * 180.0) / Math.PI) + 270.0f;
 		
 		glPushMatrix();{
 			

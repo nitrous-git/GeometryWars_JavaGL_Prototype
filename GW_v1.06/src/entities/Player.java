@@ -3,8 +3,10 @@ package entities;
 import helpers.TextureHelper;
 import entities.particle_system.ParticleSystem_Thruster;
 
+import helpers.Texture;
+import helpers.TextureHelper;
+
 import static org.lwjgl.opengl.GL11.*;
-import org.newdawn.slick.opengl.Texture;
 
 
 public class Player extends Entity {

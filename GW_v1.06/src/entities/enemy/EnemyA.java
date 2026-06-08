@@ -4,7 +4,8 @@ import static org.lwjgl.opengl.GL11.*;
 
 import java.util.ArrayList;
 
-import org.newdawn.slick.opengl.Texture;
+import helpers.Texture;
+import helpers.TextureHelper;
 
 import entities.particle_system.OscParticle;
 import helpers.TextureHelper;

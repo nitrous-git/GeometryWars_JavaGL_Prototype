@@ -1,9 +1,9 @@
 package entities.enemy;
 
+import helpers.Texture;
 import helpers.TextureHelper;
 
 import static org.lwjgl.opengl.GL11.*;
-import org.newdawn.slick.opengl.Texture;
 import java.util.Random;
 
 /**
