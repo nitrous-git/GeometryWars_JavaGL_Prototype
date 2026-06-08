@@ -1,6 +1,6 @@
 package entities;
 
-import org.newdawn.slick.opengl.Texture;
+import helpers.Texture;
 
 public interface EntityInterface {
 	public void draw();

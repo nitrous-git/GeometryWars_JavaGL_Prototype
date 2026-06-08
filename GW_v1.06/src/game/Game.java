@@ -14,11 +14,6 @@ import helpers.FontRenderer;
 import manager.WeaponManager;
 import warping_grid.Grid;
 
-import static org.lwjgl.opengl.GL11.*;
-import org.lwjgl.opengl.*;
-import org.newdawn.slick.Color;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
 import java.awt.Font;
 import java.awt.Point;
 import java.util.ArrayList;
@@ -26,6 +21,9 @@ import java.util.Arrays;
 import java.util.Random;
 
 import javax.swing.JOptionPane;
+
+import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.opengl.GL11.*;
 
 public class Game {
 	
@@ -43,11 +41,13 @@ public class Game {
 	// thruster particle
 	boolean openThruster = false;
 	// font render 
-	FontRenderer fr_timesNew = new FontRenderer("Roboto", Font.BOLD, 20);
+	FontRenderer fr_timesNew = new FontRenderer("res/ExoSpace.ttf", 30f);
 	// instantiate weapon manager 
 	WeaponManager weaponManager = new WeaponManager();
 	// declare background 
 	Background bg;
+
+	private Window window;
 	
 	
 	// do enemy stuff -- should be moved to WaveManager class
@@ -91,50 +91,52 @@ public class Game {
 		while (isRunning) {
 			render();
 			logic(gt.getDelta(), gt.getVerletDelta());
-			input();       
-			Display.update();
-			Display.sync(60);
-			if (Display.isCloseRequested()) {
-				isRunning = false;
-			}
+			input();
+
+			window.update();
+
+
 			try {
 				Long sleepTimeLong = (gt.lastLoopTime-System.nanoTime() + gt.OPTIMAL_TIME)/1000000;
+
 				if (sleepTimeLong<0) {
 					sleepTimeLong = (long)0;
-				} 
+				}
+
 				Thread.sleep(sleepTimeLong);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
-		Display.destroy();
+
+		fr_timesNew.destroy();
+		window.destroy();
 	}
 	
 	
 	//  ------------ SETTING OPENGL ------------ // 
 	// ---------------------------------------------------------------------- //
 	private void setUpDisplay() {
-		try {
-			Display.setDisplayMode(new DisplayMode(WIDTH, HEIGHT));
-			Display.setTitle("Geometry Wars");
-			Display.create();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		
-		// set up the font (UI)
+		window = new Window(WIDTH, HEIGHT, "Geometry Wars");
+		window.create();
+
 		fr_timesNew.setUpFont();
 	}
-	
+
 	private void setUpOpenGL() {
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
+
 		glOrtho(0, WIDTH, HEIGHT, 0, 1, -1);
+
 		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+
 		glEnable(GL_COLOR_MATERIAL);
 		glEnable(GL_TEXTURE_2D);
-	    glEnable(GL_BLEND);
-	    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnable(GL_BLEND);
+
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
 
 	
@@ -181,7 +183,7 @@ public class Game {
             }
         }
 		
-		fr_timesNew.drawString(20, 0, "SCORE : "+ String.valueOf(player.getScore()), Color.gray); // uses alpha 
+		fr_timesNew.drawString(20, 30, "SCORE : "+ player.getScore(), 1f, 1f, 1f, 1.0f); // uses alpha
         
         glDisable(GL_TEXTURE_2D);
 		glDisable(GL_BLEND);
@@ -348,63 +350,63 @@ public class Game {
 	// ------------ HANDLE INPUT ------------- //
 	// ---------------------------------------------------------------------- //
 	private void input() {
-		// ---- KEY INPUT ---- //
-		while (Keyboard.next()) {	
-			if (Keyboard.getEventKey() == Keyboard.KEY_UP || Keyboard.getEventKey() == Keyboard.KEY_DOWN) {
-				if (Keyboard.getEventKeyState()) {
-					player.aimUP = true;
-					player.keyReleased = false;
-					
-					// open particle thruster
-					openThruster = true;
-					
-				} else {
-					// keyReleased
-					resetKeyInput();
-				}
-			}
-			
-			if (Keyboard.getEventKey() == Keyboard.KEY_LEFT) {
-				if (Keyboard.getEventKeyState() ) {
-					// keyPressed
-					player.steerL = true;
-					player.rotSpeed = 0.3;
-				} else {
-					// keyReleased
-					player.steerL = false;
-					player.rotSpeed = 0.0;
-				}
-			}
-			if (Keyboard.getEventKey() == Keyboard.KEY_RIGHT) {
-				if (Keyboard.getEventKeyState()) {
-					// keyPressed
-					player.steerR = true;
-					player.rotSpeed = 0.3;
-				} else {
-					// keyReleased
-					player.steerR = false;
-					player.rotSpeed = 0.0;
-				}
-			}
-		}
-		
-		// ---- MOUSE INPUT ---- //
-		while (Mouse.next()) {
-			// left mouse button : 0
-			if (Mouse.getEventButton() == 0) {
-				if (Mouse.getEventButtonState()) {
-					// mousePressed
-			        mouse_pos = new int[2];
-			        mouse_pos[0] = Mouse.getEventX();
-			        mouse_pos[1] = HEIGHT - Mouse.getEventY();
-			        weaponManager.bulletSpawner(player.getX(), player.getY(), mouse_pos);
-				}else {
-					// mouseReleased
-					weaponManager.resetShoot();
-				}
-			}
+		long handle = window.getHandle();
+
+		// Escape closes the game.
+		if (glfwGetKey(handle, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+			window.requestClose();
+			isRunning = false;
+			return;
 		}
 
+		// Thruster / movement.
+		boolean thrustPressed =
+				glfwGetKey(handle, GLFW_KEY_UP) == GLFW_PRESS ||
+						glfwGetKey(handle, GLFW_KEY_DOWN) == GLFW_PRESS;
+
+		if (thrustPressed) {
+			player.aimUP = true;
+			player.keyReleased = false;
+			openThruster = true;
+		} else {
+			resetKeyInput();
+		}
+
+		// Rotation left.
+		if (glfwGetKey(handle, GLFW_KEY_LEFT) == GLFW_PRESS) {
+			player.steerL = true;
+			player.rotSpeed = 0.3;
+		} else {
+			player.steerL = false;
+		}
+
+		// Rotation right.
+		if (glfwGetKey(handle, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+			player.steerR = true;
+			player.rotSpeed = 0.3;
+		} else {
+			player.steerR = false;
+		}
+
+		if (!player.steerL && !player.steerR) {
+			player.rotSpeed = 0.0;
+		}
+
+		// Mouse shooting.
+		if (glfwGetMouseButton(handle, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+			double[] mouseX = new double[1];
+			double[] mouseY = new double[1];
+
+			glfwGetCursorPos(handle, mouseX, mouseY);
+
+			mouse_pos = new int[2];
+			mouse_pos[0] = (int) mouseX[0];
+			mouse_pos[1] = (int) mouseY[0];
+
+			weaponManager.bulletSpawner(player.getX(), player.getY(), mouse_pos);
+		} else {
+			weaponManager.resetShoot();
+		}
 	}
 
 	public void resetKeyInput() {
